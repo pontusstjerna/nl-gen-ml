@@ -1,0 +1,31 @@
+{
+  "name": "nl-gen-ml",
+  "version": "1.0.0",
+  "description": "Natural language generation using ANNs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "nodemon src/index.js --exec babel-node",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "babel src --out-dir dist --copy-files"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pontusstjerna/nl-gen-ml.git"
+  },
+  "author": "Pontus Drejer",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pontusstjerna/nl-gen-ml/issues"
+  },
+  "homepage": "https://github.com/pontusstjerna/nl-gen-ml#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.14.8",
+    "@babel/core": "^7.14.8",
+    "@babel/node": "^7.14.9",
+    "@babel/preset-env": "^7.14.9",
+    "nodemon": "^2.0.12"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^3.8.0"
+  }
+}
