@@ -1,20 +1,23 @@
 import * as tf from "@tensorflow/tfjs-node"
 import {
   createTrainingData,
-  fromOneHotToToken,
-  fromTokenToOneHot,
-  getVocabulary,
+  nGram2oneHot,
+  oneHot2token,
+  sequenceLength,
+  vocLen,
 } from "./dataHandler"
+
+const generationTokenCount = 20
 
 const trainModel = (model, inputs, labels) => {
   model.compile({
-    optimizer: "sgd",
-    loss: tf.losses.meanSquaredError,
+    optimizer: tf.train.adam(),
+    loss: tf.losses.softmaxCrossEntropy,
     metrics: ["mse"],
   })
 
   const batchSize = 32
-  const epochs = 50
+  const epochs = 10
 
   return model.fit(inputs, labels, {
     batchSize,
@@ -35,71 +38,71 @@ const createModel = (nInputs, nOutputs) => {
 
   // Input layer
   model.add(
-    tf.layers.dense({
-      inputShape: [nInputs],
-      units: nInputs,
+    tf.layers.lstm({
+      inputShape: [sequenceLength, nInputs],
+      units: 128, // Number of neurons
       useBias: true,
       activation: "tanh",
     })
   )
 
-  // Hidden
+  /*// Hidden
   model.add(
     tf.layers.dense({
       units: nInputs * 2,
       useBias: true,
       activation: "tanh",
     })
-  )
+  )*/
 
   // Output layer
   model.add(
     tf.layers.dense({
       units: nOutputs,
       useBias: true,
-      activation: "sigmoid",
+      activation: "softmax",
     })
   )
 
   return model
 }
 
-const predictToken = (model, token) => {
-  const input = fromTokenToOneHot(token)
-  const output = model.predict(input)
+const generate = (model, initialInput = "Recept   ") => {
+  let inputNgram = initialInput.split(/ /g).slice(0, sequenceLength)
+  let output = inputNgram
 
-  const predictedToken = fromOneHotToToken(output)
-  return predictedToken
-}
-
-const demo = model => {
-  const allTokens = getVocabulary()
-
-  let inputToken = allTokens[Math.floor(Math.random() * (allTokens.length - 1))]
-
-  let output = inputToken
-
-  for (let i = 0; i < 100; i++) {
-    let predictedToken = predictToken(model, inputToken)
-    output += ` ${predictedToken}`
-    inputToken = predictedToken
+  if (inputNgram.length < sequenceLength) {
+    inputNgram = [
+      ...new Array(sequenceLength - inputNgram.length).fill(null),
+      ...inputNgram,
+    ]
   }
 
-  console.log(output)
+  for (let i = 0; i < generationTokenCount; i++) {
+    let input = nGram2oneHot(inputNgram)
+
+    const outputTensor = model.predict(input).reshape([vocLen()])
+    const outputToken = oneHot2token(outputTensor)
+    output = [...output, outputToken]
+
+    inputNgram = [...inputNgram.slice(1, inputNgram.length), outputToken]
+
+    input = nGram2oneHot(inputNgram)
+  }
+
+  console.log(output.join(" "))
+
+  return output
 }
 
 export default async () => {
   const trainingData = await createTrainingData("../ml-data/recipes.txt")
 
-  //trainingData.inputs.print()
-  //trainingData.labels.print()
-  /*const numTokens = getVocabulary().length
+  const numTokens = vocLen()
   const model = createModel(numTokens, numTokens)
 
   await trainModel(model, trainingData.inputs, trainingData.labels)
   console.log("Training done! Will try and predict some.")
 
-  demo(model)
-
-  return "hello"*/
+  return generate(model)
 }

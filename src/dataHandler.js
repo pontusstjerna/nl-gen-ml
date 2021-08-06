@@ -5,7 +5,7 @@ import * as tf from "@tensorflow/tfjs-node"
 let vocabulary = []
 
 // Number of tokens
-const sequenceLength = 10
+export const sequenceLength = 100
 
 const loadFileData = filePath =>
   new Promise((resolve, reject) => {
@@ -13,12 +13,15 @@ const loadFileData = filePath =>
       .readFileSync(path.join(process.cwd(), filePath))
       .toString("utf8")
 
-    resolve(rawText.substring(0, 100))
+    resolve(rawText.substring(0, 1000))
   })
 
-const convertToTensors = (nGrams, nextTokens) => {
+const convertToTensors = data => {
   return tf.tidy(() => {
     tf.util.shuffle(data)
+
+    const nGrams = data.map(({ nGram }) => nGram)
+    const nextTokens = data.map(({ nextToken }) => nextToken)
 
     const inputTensor = tf.oneHot(nGrams, vocLen())
     const labelTensor = tf.oneHot(nextTokens, vocLen())
@@ -48,6 +51,8 @@ const createNextTokens = allTokens => {
   return nextTokens
 }
 
+const encodeNgram = nGram => nGram.map(token2ind)
+
 /**
  * Encoding example
  * Consider the nGram ["hello", "there", "general", "kenobi"]
@@ -58,7 +63,7 @@ const createNextTokens = allTokens => {
  * But since we can't use numbers as inputs to our RNN, we need to one-hot encode the numbers as well, like so:
  * [[[0,0,1,0], [0,0,0,1], [1,0,0,0], [0,1,0,0]]]
  */
-const encodeNgrams = nGrams => nGrams.map(nGram => nGram.map(token2ind))
+const encodeNgrams = nGrams => nGrams.map(encodeNgram)
 
 export const token2ind = token => vocabulary.indexOf(token)
 
@@ -66,16 +71,13 @@ export const ind2token = index => vocabulary[index]
 
 export const vocLen = () => vocabulary.length
 
-export const fromTokenToOneHot = token =>
-  tf.oneHot([token2ind(token)], vocLen())
+export const nGram2oneHot = nGram => tf.oneHot([encodeNgram(nGram)], vocLen())
 
-export const fromOneHotToToken = tensor => {
+export const oneHot2token = tensor => {
   // Tensor is on format [0, 0, 0, 0, 0.7, 0.3, 0, 0] which should be translated to 4 etc
-  const index = tf.argMax(tensor, 1).arraySync()
+  const index = tf.argMax(tensor).arraySync()
   return ind2token(index)
 }
-
-export const getVocabulary = () => vocabulary
 
 export const createTrainingData = async filePath => {
   const rawText = await loadFileData(filePath)
@@ -87,13 +89,22 @@ export const createTrainingData = async filePath => {
   const nGrams = createNgrams(allTokens)
   const nextTokens = createNextTokens(allTokens)
 
-  console.log(nGrams)
-  console.log(nextTokens)
+  console.log(
+    `Data formatted. 
+    Number of tokens: ${vocLen()}
+    Number of nGrams: ${nGrams.length}
+    Sequence length: ${sequenceLength}`
+  )
 
   const encodedNgrams = encodeNgrams(nGrams)
   const encodedNextTokens = nextTokens.map(token2ind)
 
-  const trainingData = convertToTensors(encodedNgrams, encodedNextTokens)
+  const trainingData = encodedNgrams.map((nGram, index) => ({
+    nGram,
+    nextToken: encodedNextTokens[index],
+  }))
 
-  return trainingData
+  const trainingTensors = convertToTensors(trainingData)
+
+  return trainingTensors
 }
