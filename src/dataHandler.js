@@ -5,7 +5,7 @@ import * as tf from "@tensorflow/tfjs-node"
 let vocabulary = []
 
 // Number of tokens
-export const sequenceLength = 100
+export const sequenceLength = 10
 
 const loadFileData = filePath =>
   new Promise((resolve, reject) => {
@@ -13,7 +13,7 @@ const loadFileData = filePath =>
       .readFileSync(path.join(process.cwd(), filePath))
       .toString("utf8")
 
-    resolve(rawText.substring(0, 1000))
+    resolve(rawText)
   })
 
 const convertToTensors = data => {
@@ -79,11 +79,21 @@ export const oneHot2token = tensor => {
   return ind2token(index)
 }
 
+export const formatOutput = unformatted =>
+  unformatted.join(" ").replace(/ \./g, ".")
+
 export const createTrainingData = async filePath => {
   const rawText = await loadFileData(filePath)
 
   // Split on spaces and newlines
-  const allTokens = rawText.split(/ /g).flatMap(w => w.split(/\n/g))
+  const allTokens = rawText
+    .replace(/\./g, " .")
+    .split(/ /g)
+    //.flatMap(w => w.split(/\n/g))
+    .filter(s => s.length > 0)
+    .slice(0, 10000)
+
+  console.log(allTokens)
   vocabulary = [...new Set(allTokens)]
 
   const nGrams = createNgrams(allTokens)
@@ -97,6 +107,7 @@ export const createTrainingData = async filePath => {
   )
 
   const encodedNgrams = encodeNgrams(nGrams)
+
   const encodedNextTokens = nextTokens.map(token2ind)
 
   const trainingData = encodedNgrams.map((nGram, index) => ({

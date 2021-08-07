@@ -1,3 +1,3 @@
 import generate from "./generator"
 
-console.log(generate())
+generate().then(console.log)
