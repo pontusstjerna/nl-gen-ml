@@ -1,5 +1,4 @@
 import * as tf from "@tensorflow/tfjs-node"
-import { truncatedNormal } from "@tensorflow/tfjs-node"
 import {
   createTrainingData,
   formatOutput,
@@ -107,8 +106,8 @@ const generate = (model, initialInput = "Recept på") => {
   return output
 }
 
-export default async () => {
-  const trainingData = await createTrainingData("../ml-data/recipes.txt")
+const createAndTrainModel = async trainingDataFilePath => {
+  const trainingData = await createTrainingData(trainingDataFilePath)
 
   const numTokens = vocLen()
   const model = createModel(numTokens, numTokens)
@@ -117,7 +116,31 @@ export default async () => {
   trainingData.inputs.dispose()
   trainingData.labels.dispose()
 
-  console.log("Training done! Will try and predict some.")
+  console.log(`Training done.`)
 
-  return formatOutput(generate(model))
+  return model
+}
+
+export default async (train, modelName, initializer) => {
+  let model = null
+
+  if (!train && modelName) {
+    // Try to load
+    console.log(`Trying to load models/${modelName}/model.json`)
+    try {
+      model = await tf.loadLayersModel(`file://models/${modelName}/model.json`)
+    } catch (error) {
+      console.log(
+        `Model ${modelName} doesn't exist, creating and training a new one.`
+      )
+    }
+  }
+
+  if (!model) {
+    model = await createAndTrainModel("../ml-data/blog-posts.txt")
+    await model.save(`file://models/${modelName}`)
+    console.log(`Model saved as "${modelName}.json"`)
+  }
+
+  return formatOutput(generate(model, initializer))
 }

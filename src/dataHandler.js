@@ -5,7 +5,7 @@ import * as tf from "@tensorflow/tfjs-node"
 let vocabulary = []
 
 // Number of tokens
-export const sequenceLength = 10
+export const sequenceLength = 6
 
 const loadFileData = filePath =>
   new Promise((resolve, reject) => {
@@ -91,7 +91,7 @@ export const createTrainingData = async filePath => {
     .split(/ /g)
     //.flatMap(w => w.split(/\n/g))
     .filter(s => s.length > 0)
-    .slice(0, 10000)
+    .slice(0, 50000)
 
   console.log(allTokens)
   vocabulary = [...new Set(allTokens)]
