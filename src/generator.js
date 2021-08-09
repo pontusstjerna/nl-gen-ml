@@ -1,16 +1,60 @@
 import * as tf from "@tensorflow/tfjs-node"
 import {
-  createTrainingData,
+  trainingDataGenerator,
   formatOutput,
+  loadTrainingData,
+  loadVocabulary,
   nGram2oneHot,
   oneHot2token,
+  saveVocabulary,
   sequenceLength,
   vocLen,
 } from "./dataHandler"
 
 const generationTokenCount = 200
 
-const trainModel = (model, inputs, labels) => {
+const createModel = (nInputs, nOutputs) => {
+  const model = tf.sequential()
+
+  // Input layer
+  model.add(
+    tf.layers.lstm({
+      inputShape: [sequenceLength, nInputs],
+      units: 100, // Number of neurons
+      returnSequences: true,
+    })
+  )
+
+  //model.add(tf.layers.dropout(0.3))
+
+  // Hidden
+  model.add(
+    tf.layers.lstm({
+      units: 100,
+    })
+  )
+
+  model.add(
+    tf.layers.dense({
+      units: 100,
+      useBias: true,
+      activation: "relu",
+    })
+  )
+
+  // Output layer
+  model.add(
+    tf.layers.dense({
+      units: nOutputs,
+      //useBias: true,
+      activation: "softmax",
+    })
+  )
+
+  return model
+}
+
+const trainModel = async (model, dataGenerator) => {
   model.compile({
     optimizer: tf.train.adam(), //tf.train.rmsprop(0.1),
     loss: "categoricalCrossentropy",
@@ -20,7 +64,9 @@ const trainModel = (model, inputs, labels) => {
   const batchSize = 128
   const epochs = 100
 
-  return model.fit(inputs, labels, {
+  const dataset = tf.data.generator(dataGenerator)
+
+  return await model.fitDataset(dataset, {
     batchSize,
     epochs,
     shuffle: true,
@@ -36,47 +82,6 @@ const trainModel = (model, inputs, labels) => {
       },
     ],
   })
-}
-
-const createModel = (nInputs, nOutputs) => {
-  const model = tf.sequential()
-
-  // Input layer
-  model.add(
-    tf.layers.lstm({
-      inputShape: [sequenceLength, nInputs],
-      units: 100, // Number of neurons
-      //returnSequences: true,
-    })
-  )
-
-  //model.add(tf.layers.dropout(0.3))
-
-  // Hidden
-  /*model.add(
-    tf.layers.lstm({
-      units: 100,
-    })
-  )
-
-  model.add(
-    tf.layers.dense({
-      units: 100,
-      useBias: true,
-      activation: "relu",
-    })
-  )*/
-
-  // Output layer
-  model.add(
-    tf.layers.dense({
-      units: nOutputs,
-      //useBias: true,
-      activation: "softmax",
-    })
-  )
-
-  return model
 }
 
 const generate = (model, initialInput = "Recept på") => {
@@ -107,24 +112,22 @@ const generate = (model, initialInput = "Recept på") => {
 }
 
 const createAndTrainModel = async trainingDataFilePath => {
-  const trainingData = await createTrainingData(trainingDataFilePath)
+  await loadTrainingData(trainingDataFilePath)
 
   const numTokens = vocLen()
   const model = createModel(numTokens, numTokens)
 
-  await trainModel(model, trainingData.inputs, trainingData.labels)
-  trainingData.inputs.dispose()
-  trainingData.labels.dispose()
+  await trainModel(model, trainingDataGenerator)
 
   console.log(`Training done.`)
 
   return model
 }
 
-export default async (train, modelName, initializer) => {
+export default async (train, modelName, initializer, dataFilePath) => {
   let model = null
 
-  if (!train && modelName) {
+  if (modelName) {
     // Try to load
     console.log(`Trying to load models/${modelName}/model.json`)
     try {
@@ -133,13 +136,17 @@ export default async (train, modelName, initializer) => {
       console.log(
         `Model ${modelName} doesn't exist, creating and training a new one.`
       )
+      train = true
     }
   }
 
-  if (!model) {
-    model = await createAndTrainModel("../ml-data/blog-posts.txt")
+  if (train) {
+    model = await createAndTrainModel(dataFilePath)
     await model.save(`file://models/${modelName}`)
     console.log(`Model saved as "${modelName}.json"`)
+    saveVocabulary(modelName)
+  } else {
+    loadVocabulary(modelName)
   }
 
   return formatOutput(generate(model, initializer))

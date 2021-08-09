@@ -3,9 +3,10 @@ import path from "path"
 import * as tf from "@tensorflow/tfjs-node"
 
 let vocabulary = []
+let allTokens = []
 
 // Number of tokens
-export const sequenceLength = 6
+export const sequenceLength = 4
 
 const loadFileData = filePath =>
   new Promise((resolve, reject) => {
@@ -23,10 +24,10 @@ const convertToTensors = data => {
     const nGrams = data.map(({ nGram }) => nGram)
     const nextTokens = data.map(({ nextToken }) => nextToken)
 
-    const inputTensor = tf.oneHot(nGrams, vocLen())
-    const labelTensor = tf.oneHot(nextTokens, vocLen())
+    const inputTensor = tf.oneHot(nGrams, vocLen()).cast("float32")
+    const labelTensor = tf.oneHot(nextTokens, vocLen()).cast("float32")
 
-    return { inputs: inputTensor, labels: labelTensor }
+    return { xs: inputTensor, ys: labelTensor }
   })
 }
 
@@ -80,42 +81,76 @@ export const oneHot2token = tensor => {
 }
 
 export const formatOutput = unformatted =>
-  unformatted.join(" ").replace(/ \./g, ".")
+  unformatted.join(" ").replace(/ \./g, ".").replace(/ \n /g, "\n")
 
-export const createTrainingData = async filePath => {
+export const saveVocabulary = modelName => {
+  try {
+    fs.writeFileSync(
+      path.join(process.cwd(), `models/${modelName}/vocab.txt`),
+      JSON.stringify(vocabulary)
+    )
+    console.log(`Vocabulary saved with ${vocLen()} tokens`)
+  } catch (error) {
+    console.log("Unable to save vocabulary.")
+  }
+}
+
+export const loadVocabulary = modelName => {
+  const json = fs
+    .readFileSync(path.join(process.cwd(), `models/${modelName}/vocab.txt`))
+    .toString("utf8")
+  vocabulary = JSON.parse(json)
+}
+
+export function* dataGenerator() {
+  let index = 0
+  while (index < inputs.length) {
+    const xs = tf.cast(inputs[index], "float32")
+    const ys = tf.cast(labels[index], "float32")
+    index++
+    yield { xs, ys }
+  }
+}
+
+export const loadTrainingData = async filePath => {
   const rawText = await loadFileData(filePath)
 
   // Split on spaces and newlines
-  const allTokens = rawText
+  allTokens = rawText
     .replace(/\./g, " .")
+    .replace(/\n/g, " \n ")
     .split(/ /g)
     //.flatMap(w => w.split(/\n/g))
     .filter(s => s.length > 0)
-    .slice(0, 50000)
+    .slice(0, 50)
 
-  console.log(allTokens)
   vocabulary = [...new Set(allTokens)]
-
-  const nGrams = createNgrams(allTokens)
-  const nextTokens = createNextTokens(allTokens)
 
   console.log(
     `Data formatted. 
     Number of tokens: ${vocLen()}
-    Number of nGrams: ${nGrams.length}
     Sequence length: ${sequenceLength}`
   )
+}
 
-  const encodedNgrams = encodeNgrams(nGrams)
+export function* trainingDataGenerator() {
+  const chunkSize = 6
+  for (let i = 0; i < Math.ceil(allTokens.length / chunkSize); i++) {
+    const chunkedTokens = allTokens.slice(i, i + chunkSize + sequenceLength)
 
-  const encodedNextTokens = nextTokens.map(token2ind)
+    const nGrams = createNgrams(chunkedTokens)
+    const nextTokens = createNextTokens(chunkedTokens)
 
-  const trainingData = encodedNgrams.map((nGram, index) => ({
-    nGram,
-    nextToken: encodedNextTokens[index],
-  }))
+    console.log(nGrams)
 
-  const trainingTensors = convertToTensors(trainingData)
+    const encodedNgrams = encodeNgrams(nGrams)
+    const encodedNextTokens = nextTokens.map(token2ind)
 
-  return trainingTensors
+    const trainingData = encodedNgrams.map((nGram, index) => ({
+      nGram,
+      nextToken: encodedNextTokens[index],
+    }))
+
+    yield convertToTensors(trainingData)
+  }
 }
