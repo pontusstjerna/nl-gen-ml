@@ -64,10 +64,10 @@ const trainModel = async (model, dataGenerator) => {
   const batchSize = parseInt(process.env.batchSize) || 128
   const epochs = parseInt(process.env.epochs) || 100
 
-  const dataset = tf.data.generator(dataGenerator)
+  const dataset = tf.data.generator(dataGenerator).repeat(epochs)
 
   return await model.fitDataset(dataset, {
-    batchSize,
+    batchesPerEpoch: batchSize,
     epochs,
     shuffle: true,
     callbacks: [

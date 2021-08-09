@@ -32,14 +32,14 @@ const convertToTensors = data => {
   })
 }
 
-const createNgrams = allTokens =>
-  new Array(allTokens.length - sequenceLength())
+const createNgrams = tokens =>
+  new Array(tokens.length - sequenceLength())
     .fill()
     .map((_, startIndex) =>
-      allTokens.slice(startIndex, startIndex + sequenceLength())
+      tokens.slice(startIndex, startIndex + sequenceLength())
     )
 
-const createNextTokens = allTokens => allTokens.slice(sequenceLength())
+const createNextTokens = tokens => tokens.slice(sequenceLength())
 
 const encodeNgram = nGram => nGram.map(token2ind)
 
@@ -101,25 +101,33 @@ export const loadTrainingData = async filePath => {
     .split(/ /g)
     //.flatMap(w => w.split(/\n/g))
     .filter(s => s.length > 0)
-    .slice(0, 10)
+    .slice(0, 10000)
 
   vocabulary = [...new Set(allTokens)]
 
-  console.log(
-    `Data formatted. 
-    Number of vocabulary: ${vocLen()}
-    Number of all tokens: ${allTokens.length}
-    Sequence length: ${sequenceLength()}`
-  )
+  console.log(`
+  Data formatted. 
+  Number of vocabulary: ${vocLen()}
+  Number of all tokens: ${allTokens.length}
+  Sequence length: ${sequenceLength()}`)
 }
 
 export function* trainingDataGenerator() {
-  const chunkSize = 4
-  for (let i = 0; i < Math.ceil(allTokens.length / chunkSize); i++) {
-    const chunkedTokens = allTokens.slice(i, i + chunkSize + sequenceLength())
+  const numberOfBatches = parseInt(process.env.batchSize) || 128
+  const batchSize = Math.ceil(allTokens.length / numberOfBatches)
 
-    const nGrams = createNgrams(chunkedTokens)
-    const nextTokens = createNextTokens(chunkedTokens)
+  console.log(`
+  Batch size: ${batchSize}
+  Number of batches: ${numberOfBatches}`)
+
+  for (let i = 0; i < numberOfBatches; i++) {
+    const tokensInBatch = allTokens.slice(
+      i,
+      i + batchSize + sequenceLength() + 1 // Input + label
+    )
+
+    const nGrams = createNgrams(tokensInBatch)
+    const nextTokens = createNextTokens(tokensInBatch)
 
     const encodedNgrams = encodeNgrams(nGrams)
     const encodedNextTokens = nextTokens.map(token2ind)
