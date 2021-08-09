@@ -9,6 +9,7 @@ import {
   saveVocabulary,
   sequenceLength,
   vocLen,
+  batchesPerEpoch,
 } from "./dataHandler"
 
 const defaultGenerationTokenCount = 200
@@ -54,20 +55,19 @@ const createModel = (nInputs, nOutputs) => {
   return model
 }
 
-const trainModel = async (model, dataGenerator) => {
+const trainModel = async (model, dataGenerator, batchSize) => {
   model.compile({
     optimizer: tf.train.adam(), //tf.train.rmsprop(0.1),
     loss: "categoricalCrossentropy",
     metrics: ["accuracy"],
   })
 
-  const batchSize = parseInt(process.env.batchSize) || 128
   const epochs = parseInt(process.env.epochs) || 100
 
   const dataset = tf.data.generator(dataGenerator).repeat(epochs)
 
   return await model.fitDataset(dataset, {
-    batchesPerEpoch: batchSize,
+    batchesPerEpoch: batchesPerEpoch(batchSize),
     epochs,
     shuffle: true,
     callbacks: [
@@ -121,8 +121,13 @@ const createAndTrainModel = async trainingDataFilePath => {
 
   const numTokens = vocLen()
   const model = createModel(numTokens, numTokens)
+  const batchSize = parseInt(process.env.batchSize) || 128
 
-  await trainModel(model, trainingDataGenerator)
+  await trainModel(
+    model,
+    trainingDataGenerator.bind(null, batchSize),
+    batchSize
+  )
 
   console.log(`Training done.`)
 

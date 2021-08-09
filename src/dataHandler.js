@@ -112,9 +112,11 @@ export const loadTrainingData = async filePath => {
   Sequence length: ${sequenceLength()}`)
 }
 
-export function* trainingDataGenerator() {
-  const numberOfBatches = parseInt(process.env.batchSize) || 128
-  const batchSize = Math.ceil(allTokens.length / numberOfBatches)
+export const batchesPerEpoch = batchSize =>
+  Math.floor(allTokens.length / batchSize)
+
+export function* trainingDataGenerator(batchSize) {
+  const numberOfBatches = batchesPerEpoch(batchSize)
 
   console.log(`
   Batch size: ${batchSize}
