@@ -1,12 +1,13 @@
 import fs from "fs"
 import path from "path"
 import * as tf from "@tensorflow/tfjs-node"
+import { start } from "repl"
 
 let vocabulary = []
 let allTokens = []
 
 // Number of tokens
-export const sequenceLength = () => process.env.sequenceLength || 4
+export const sequenceLength = () => parseInt(process.env.sequenceLength) || 4
 
 const loadFileData = filePath =>
   new Promise((resolve, reject) => {
@@ -31,26 +32,14 @@ const convertToTensors = data => {
   })
 }
 
-const createNgrams = allTokens => {
-  let nGrams = []
+const createNgrams = allTokens =>
+  new Array(allTokens.length - sequenceLength())
+    .fill()
+    .map((_, startIndex) =>
+      allTokens.slice(startIndex, startIndex + sequenceLength())
+    )
 
-  // Create nGrams from words with n = sequenceLength(). This will be the inputs.
-  for (let i = 0; i < allTokens.length - sequenceLength(); i++) {
-    nGrams.push(allTokens.slice(i, i + sequenceLength()))
-  }
-
-  return nGrams
-}
-
-const createNextTokens = allTokens => {
-  let nextTokens = []
-
-  for (let i = 0; i < allTokens.length - sequenceLength(); i++) {
-    nextTokens.push(allTokens[i + sequenceLength()])
-  }
-
-  return nextTokens
-}
+const createNextTokens = allTokens => allTokens.slice(sequenceLength())
 
 const encodeNgram = nGram => nGram.map(token2ind)
 
@@ -102,16 +91,6 @@ export const loadVocabulary = modelName => {
   vocabulary = JSON.parse(json)
 }
 
-export function* dataGenerator() {
-  let index = 0
-  while (index < inputs.length) {
-    const xs = tf.cast(inputs[index], "float32")
-    const ys = tf.cast(labels[index], "float32")
-    index++
-    yield { xs, ys }
-  }
-}
-
 export const loadTrainingData = async filePath => {
   const rawText = await loadFileData(filePath)
 
@@ -122,7 +101,7 @@ export const loadTrainingData = async filePath => {
     .split(/ /g)
     //.flatMap(w => w.split(/\n/g))
     .filter(s => s.length > 0)
-  //.slice(0, 50)
+    .slice(0, 10)
 
   vocabulary = [...new Set(allTokens)]
 
@@ -135,7 +114,7 @@ export const loadTrainingData = async filePath => {
 }
 
 export function* trainingDataGenerator() {
-  const chunkSize = 500
+  const chunkSize = 4
   for (let i = 0; i < Math.ceil(allTokens.length / chunkSize); i++) {
     const chunkedTokens = allTokens.slice(i, i + chunkSize + sequenceLength())
 
