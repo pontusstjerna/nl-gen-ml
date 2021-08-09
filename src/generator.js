@@ -124,7 +124,12 @@ const createAndTrainModel = async trainingDataFilePath => {
   return model
 }
 
-export default async (train, modelName, initializer, dataFilePath) => {
+export default async (
+  train,
+  modelName = "model",
+  initializer,
+  dataFilePath
+) => {
   let model = null
 
   if (modelName) {

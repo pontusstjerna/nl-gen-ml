@@ -122,26 +122,25 @@ export const loadTrainingData = async filePath => {
     .split(/ /g)
     //.flatMap(w => w.split(/\n/g))
     .filter(s => s.length > 0)
-    .slice(0, 50)
+  //.slice(0, 50)
 
   vocabulary = [...new Set(allTokens)]
 
   console.log(
     `Data formatted. 
-    Number of tokens: ${vocLen()}
+    Number of vocabulary: ${vocLen()}
+    Number of all tokens: ${allTokens.length}
     Sequence length: ${sequenceLength}`
   )
 }
 
 export function* trainingDataGenerator() {
-  const chunkSize = 6
+  const chunkSize = 500
   for (let i = 0; i < Math.ceil(allTokens.length / chunkSize); i++) {
     const chunkedTokens = allTokens.slice(i, i + chunkSize + sequenceLength)
 
     const nGrams = createNgrams(chunkedTokens)
     const nextTokens = createNextTokens(chunkedTokens)
-
-    console.log(nGrams)
 
     const encodedNgrams = encodeNgrams(nGrams)
     const encodedNextTokens = nextTokens.map(token2ind)
