@@ -11,7 +11,7 @@ import {
   vocLen,
 } from "./dataHandler"
 
-const generationTokenCount = 200
+const defaultGenerationTokenCount = 200
 
 const createModel = (nInputs, nOutputs) => {
   const model = tf.sequential()
@@ -19,7 +19,7 @@ const createModel = (nInputs, nOutputs) => {
   // Input layer
   model.add(
     tf.layers.lstm({
-      inputShape: [sequenceLength, nInputs],
+      inputShape: [sequenceLength(), nInputs],
       units: 100, // Number of neurons
       returnSequences: true,
     })
@@ -61,8 +61,8 @@ const trainModel = async (model, dataGenerator) => {
     metrics: ["accuracy"],
   })
 
-  const batchSize = 128
-  const epochs = 100
+  const batchSize = parseInt(process.env.batchSize) || 128
+  const epochs = parseInt(process.env.epochs) || 100
 
   const dataset = tf.data.generator(dataGenerator)
 
@@ -85,6 +85,11 @@ const trainModel = async (model, dataGenerator) => {
 }
 
 const generate = (model, initialInput = "Recept på") => {
+  // Sequence length of the saved model is saved in the second dimension of the input shape
+  const sequenceLength = model.getConfig().layers[0].config.batchInputShape[1]
+  const generationTokenCount =
+    process.env.generationCount || defaultGenerationTokenCount
+
   let inputNgram = initialInput.split(/ /g).slice(0, sequenceLength)
   let output = inputNgram
 

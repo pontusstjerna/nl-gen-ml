@@ -6,7 +6,7 @@ let vocabulary = []
 let allTokens = []
 
 // Number of tokens
-export const sequenceLength = 4
+export const sequenceLength = () => process.env.sequenceLength || 4
 
 const loadFileData = filePath =>
   new Promise((resolve, reject) => {
@@ -34,9 +34,9 @@ const convertToTensors = data => {
 const createNgrams = allTokens => {
   let nGrams = []
 
-  // Create nGrams from words with n = sequenceLength. This will be the inputs.
-  for (let i = 0; i < allTokens.length - sequenceLength; i++) {
-    nGrams.push(allTokens.slice(i, i + sequenceLength))
+  // Create nGrams from words with n = sequenceLength(). This will be the inputs.
+  for (let i = 0; i < allTokens.length - sequenceLength(); i++) {
+    nGrams.push(allTokens.slice(i, i + sequenceLength()))
   }
 
   return nGrams
@@ -45,8 +45,8 @@ const createNgrams = allTokens => {
 const createNextTokens = allTokens => {
   let nextTokens = []
 
-  for (let i = 0; i < allTokens.length - sequenceLength; i++) {
-    nextTokens.push(allTokens[i + sequenceLength])
+  for (let i = 0; i < allTokens.length - sequenceLength(); i++) {
+    nextTokens.push(allTokens[i + sequenceLength()])
   }
 
   return nextTokens
@@ -130,14 +130,14 @@ export const loadTrainingData = async filePath => {
     `Data formatted. 
     Number of vocabulary: ${vocLen()}
     Number of all tokens: ${allTokens.length}
-    Sequence length: ${sequenceLength}`
+    Sequence length: ${sequenceLength()}`
   )
 }
 
 export function* trainingDataGenerator() {
   const chunkSize = 500
   for (let i = 0; i < Math.ceil(allTokens.length / chunkSize); i++) {
-    const chunkedTokens = allTokens.slice(i, i + chunkSize + sequenceLength)
+    const chunkedTokens = allTokens.slice(i, i + chunkSize + sequenceLength())
 
     const nGrams = createNgrams(chunkedTokens)
     const nextTokens = createNextTokens(chunkedTokens)
