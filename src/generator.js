@@ -124,10 +124,9 @@ export default async (
   let model = null
 
   if (modelName) {
-    // Try to load
-    console.log(`Trying to load models/${modelName}/model.json`)
     try {
       model = await tf.loadLayersModel(`file://models/${modelName}/model.json`)
+      console.log(`Loaded model models/${modelName}.json`)
     } catch (error) {
       console.log(
         `Model ${modelName} doesn't exist, creating and training a new one.`
@@ -152,6 +151,8 @@ export default async (
     await model.save(`file://models/${modelName}`)
     console.log(`Model saved as "${modelName}.json"`)
     saveVocabulary(modelName)
+  } else {
+    loadVocabulary(modelName)
   }
 
   return formatOutput(generate(model, initializer))
