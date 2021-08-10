@@ -57,7 +57,7 @@ const createModel = (nInputs, nOutputs) => {
 
 const trainModel = async (model, dataGenerator, batchSize) => {
   model.compile({
-    optimizer: tf.train.adam(), //tf.train.rmsprop(0.1),
+    optimizer: tf.train.adam(),
     loss: "categoricalCrossentropy",
     metrics: ["accuracy"],
   })
@@ -85,17 +85,16 @@ const trainModel = async (model, dataGenerator, batchSize) => {
 }
 
 const generate = (model, initialInput = "Recept på") => {
-  // Sequence length of the saved model is saved in the second dimension of the input shape
-  const sequenceLength = model.getConfig().layers[0].config.batchInputShape[1]
+  const seqLength = sequenceLength(model)
   const generationTokenCount =
     process.env.generationCount || defaultGenerationTokenCount
 
-  let inputNgram = initialInput.split(/ /g).slice(0, sequenceLength)
+  let inputNgram = initialInput.split(/ /g).slice(0, seqLength)
   let output = inputNgram
 
-  if (inputNgram.length < sequenceLength) {
+  if (inputNgram.length < seqLength) {
     inputNgram = [
-      ...new Array(sequenceLength - inputNgram.length).fill(null),
+      ...new Array(seqLength - inputNgram.length).fill(null),
       ...inputNgram,
     ]
   }
@@ -138,14 +137,14 @@ export default async (
   }
 
   if (train) {
-    await loadTrainingData(dataFilePath)
+    await loadTrainingData(dataFilePath, sequenceLength(model))
     const numTokens = vocLen()
     model = model || createModel(numTokens, numTokens)
     const batchSize = parseInt(process.env.batchSize) || 128
 
     await trainModel(
       model,
-      trainingDataGenerator.bind(null, batchSize),
+      trainingDataGenerator.bind(null, batchSize, sequenceLength(model)),
       batchSize
     )
 
@@ -153,12 +152,6 @@ export default async (
     await model.save(`file://models/${modelName}`)
     console.log(`Model saved as "${modelName}.json"`)
     saveVocabulary(modelName)
-  } else {
-    loadVocabulary(modelName)
-    if (!model) {
-      const numTokens = vocLen()
-      model = createModel(numTokens, numTokens)
-    }
   }
 
   return formatOutput(generate(model, initializer))

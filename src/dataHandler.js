@@ -1,13 +1,15 @@
 import fs from "fs"
 import path from "path"
 import * as tf from "@tensorflow/tfjs-node"
-import { start } from "repl"
 
 let vocabulary = []
 let allTokens = []
 
 // Number of tokens
-export const sequenceLength = () => parseInt(process.env.sequenceLength) || 4
+export const sequenceLength = model =>
+  model
+    ? model.getConfig().layers[0].config.batchInputShape[1] // Sequence length of the saved model is saved in the second dimension of the input shape
+    : parseInt(process.env.sequenceLength) || 4
 
 const loadFileData = filePath =>
   new Promise((resolve, reject) => {
@@ -32,14 +34,12 @@ const convertToTensors = data => {
   })
 }
 
-const createNgrams = tokens =>
-  new Array(tokens.length - sequenceLength())
+const createNgrams = (tokens, sequenceLength) =>
+  new Array(tokens.length - sequenceLength)
     .fill()
     .map((_, startIndex) =>
-      tokens.slice(startIndex, startIndex + sequenceLength())
+      tokens.slice(startIndex, startIndex + sequenceLength)
     )
-
-const createNextTokens = tokens => tokens.slice(sequenceLength())
 
 const encodeNgram = nGram => nGram.map(token2ind)
 
@@ -91,7 +91,10 @@ export const loadVocabulary = modelName => {
   vocabulary = JSON.parse(json)
 }
 
-export const loadTrainingData = async filePath => {
+export const loadTrainingData = async (
+  filePath,
+  sequenceLength = sequenceLength()
+) => {
   const rawText = await loadFileData(filePath)
 
   // Split on spaces and newlines
@@ -101,7 +104,7 @@ export const loadTrainingData = async filePath => {
     .split(/ /g)
     //.flatMap(w => w.split(/\n/g))
     .filter(s => s.length > 0)
-  //.slice(0, 100000)
+  //.slice(0, 50)
 
   vocabulary = [...new Set(allTokens)]
 
@@ -109,14 +112,14 @@ export const loadTrainingData = async filePath => {
     `Data formatted. 
 Number of vocabulary: ${vocLen()}
 Number of all tokens: ${allTokens.length}
-Sequence length: ${sequenceLength()}`
+Sequence length: ${sequenceLength}`
   )
 }
 
 export const batchesPerEpoch = batchSize =>
   Math.floor(allTokens.length / batchSize)
 
-export function* trainingDataGenerator(batchSize) {
+export function* trainingDataGenerator(batchSize, sequenceLength) {
   const numberOfBatches = batchesPerEpoch(batchSize)
 
   console.log(
@@ -125,10 +128,10 @@ Number of batches: ${numberOfBatches}`
   )
 
   for (let i = 0; i < numberOfBatches; i++) {
-    const tokensInBatch = allTokens.slice(i, i + batchSize + sequenceLength())
+    const tokensInBatch = allTokens.slice(i, i + batchSize + sequenceLength)
 
-    const nGrams = createNgrams(tokensInBatch)
-    const nextTokens = createNextTokens(tokensInBatch)
+    const nGrams = createNgrams(tokensInBatch, sequenceLength)
+    const nextTokens = tokensInBatch.slice(sequenceLength)
 
     const encodedNgrams = encodeNgrams(nGrams)
     const encodedNextTokens = nextTokens.map(token2ind)
