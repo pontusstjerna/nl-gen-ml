@@ -116,24 +116,6 @@ const generate = (model, initialInput = "Recept på") => {
   return output
 }
 
-const createAndTrainModel = async trainingDataFilePath => {
-  await loadTrainingData(trainingDataFilePath)
-
-  const numTokens = vocLen()
-  const model = createModel(numTokens, numTokens)
-  const batchSize = parseInt(process.env.batchSize) || 128
-
-  await trainModel(
-    model,
-    trainingDataGenerator.bind(null, batchSize),
-    batchSize
-  )
-
-  console.log(`Training done.`)
-
-  return model
-}
-
 export default async (
   train,
   modelName = "model",
@@ -156,12 +138,27 @@ export default async (
   }
 
   if (train) {
-    model = await createAndTrainModel(dataFilePath)
+    await loadTrainingData(dataFilePath)
+    const numTokens = vocLen()
+    model = model || createModel(numTokens, numTokens)
+    const batchSize = parseInt(process.env.batchSize) || 128
+
+    await trainModel(
+      model,
+      trainingDataGenerator.bind(null, batchSize),
+      batchSize
+    )
+
+    console.log(`Training done.`)
     await model.save(`file://models/${modelName}`)
     console.log(`Model saved as "${modelName}.json"`)
     saveVocabulary(modelName)
   } else {
     loadVocabulary(modelName)
+    if (!model) {
+      const numTokens = vocLen()
+      model = createModel(numTokens, numTokens)
+    }
   }
 
   return formatOutput(generate(model, initializer))

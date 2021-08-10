@@ -101,15 +101,16 @@ export const loadTrainingData = async filePath => {
     .split(/ /g)
     //.flatMap(w => w.split(/\n/g))
     .filter(s => s.length > 0)
-    .slice(0, 10000)
+  //.slice(0, 100000)
 
   vocabulary = [...new Set(allTokens)]
 
-  console.log(`
-  Data formatted. 
-  Number of vocabulary: ${vocLen()}
-  Number of all tokens: ${allTokens.length}
-  Sequence length: ${sequenceLength()}`)
+  console.log(
+    `Data formatted. 
+Number of vocabulary: ${vocLen()}
+Number of all tokens: ${allTokens.length}
+Sequence length: ${sequenceLength()}`
+  )
 }
 
 export const batchesPerEpoch = batchSize =>
@@ -118,15 +119,13 @@ export const batchesPerEpoch = batchSize =>
 export function* trainingDataGenerator(batchSize) {
   const numberOfBatches = batchesPerEpoch(batchSize)
 
-  console.log(`
-  Batch size: ${batchSize}
-  Number of batches: ${numberOfBatches}`)
+  console.log(
+    `Batch size: ${batchSize}
+Number of batches: ${numberOfBatches}`
+  )
 
   for (let i = 0; i < numberOfBatches; i++) {
-    const tokensInBatch = allTokens.slice(
-      i,
-      i + batchSize + sequenceLength() + 1 // Input + label
-    )
+    const tokensInBatch = allTokens.slice(i, i + batchSize + sequenceLength())
 
     const nGrams = createNgrams(tokensInBatch)
     const nextTokens = createNextTokens(tokensInBatch)
