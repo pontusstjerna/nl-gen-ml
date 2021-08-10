@@ -33,4 +33,10 @@ const dataFilePath =
     return filePathArg ? filePathArg.split("=")[1] : undefined
   })() || process.env.dataFilePath
 
-generate(train, modelName, initializer, dataFilePath).then(console.log)
+const epochs =
+  (() => {
+    const filePathArg = process.argv.find(arg => arg.startsWith("--epochs"))
+    return filePathArg ? parseInt(filePathArg.split("=")[1]) : undefined
+  })() || parseInt(process.env.epochs)
+
+generate(train, modelName, initializer, dataFilePath, epochs).then(console.log)

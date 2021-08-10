@@ -55,14 +55,12 @@ const createModel = (nInputs, nOutputs) => {
   return model
 }
 
-const trainModel = async (model, dataGenerator, batchSize) => {
+const trainModel = async (model, dataGenerator, batchSize, epochs = 100) => {
   model.compile({
     optimizer: tf.train.adam(),
     loss: "categoricalCrossentropy",
     metrics: ["accuracy"],
   })
-
-  const epochs = parseInt(process.env.epochs) || 100
 
   const dataset = tf.data.generator(dataGenerator).repeat(epochs)
 
@@ -119,7 +117,8 @@ export default async (
   train,
   modelName = "model",
   initializer,
-  dataFilePath
+  dataFilePath,
+  epochs
 ) => {
   let model = null
 
@@ -144,7 +143,8 @@ export default async (
     await trainModel(
       model,
       trainingDataGenerator.bind(null, batchSize, sequenceLength(model)),
-      batchSize
+      batchSize,
+      epochs
     )
 
     console.log(`Training done.`)
