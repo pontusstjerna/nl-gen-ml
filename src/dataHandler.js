@@ -5,6 +5,8 @@ import * as tf from "@tensorflow/tfjs-node"
 let vocabulary = []
 let allTokens = []
 
+const separationTokenRegexp = /[.,()-:–\n!?]/g
+
 // Number of tokens
 export const sequenceLength = model =>
   model
@@ -99,8 +101,8 @@ export const loadTrainingData = async (
 
   // Split on spaces and newlines
   allTokens = rawText
-    .replace(/\./g, " .")
-    .replace(/\n/g, " \n ")
+    .replace(separationTokenRegexp, " $& ")
+    .toLowerCase()
     .split(/ /g)
     //.flatMap(w => w.split(/\n/g))
     .filter(s => s.length > 0)
@@ -117,7 +119,10 @@ Sequence length: ${sequenceLength}`
 }
 
 export const batchesPerEpoch = batchSize =>
-  Math.floor(allTokens.length / batchSize)
+  Math.min(
+    Math.floor(allTokens.length / batchSize),
+    process.env.batchCountLimit || 1000000
+  )
 
 export function* trainingDataGenerator(batchSize, sequenceLength) {
   const numberOfBatches = batchesPerEpoch(batchSize)

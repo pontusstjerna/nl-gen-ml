@@ -13,6 +13,7 @@ import {
 } from "./dataHandler"
 
 const defaultGenerationTokenCount = 200
+const layerSize = 1024
 
 const createModel = (nInputs, nOutputs) => {
   const model = tf.sequential()
@@ -21,27 +22,27 @@ const createModel = (nInputs, nOutputs) => {
   model.add(
     tf.layers.lstm({
       inputShape: [sequenceLength(), nInputs],
-      units: 100, // Number of neurons
-      returnSequences: true,
+      units: layerSize, // Number of neurons
+      //returnSequences: true,
     })
   )
 
   //model.add(tf.layers.dropout(0.3))
 
   // Hidden
-  model.add(
+  /*model.add(
     tf.layers.lstm({
-      units: 100,
+      units: 256,
     })
   )
 
   model.add(
     tf.layers.dense({
-      units: 100,
+      units: 256,
       useBias: true,
       activation: "relu",
     })
-  )
+  )*/
 
   // Output layer
   model.add(
