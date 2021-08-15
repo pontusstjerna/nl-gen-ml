@@ -5,7 +5,8 @@ import * as tf from "@tensorflow/tfjs-node"
 let vocabulary = []
 let allTokens = []
 
-const separationTokenRegexp = /[.,()-:–\n!?]/g
+const separationTokenRegexp = /[(\-–\n]/g
+const spacedSeparationTokenRegexp = /[.,):!?]/g
 
 // Number of tokens
 export const sequenceLength = model =>
@@ -72,12 +73,12 @@ export const oneHot2token = tensor => {
 }
 
 export const formatOutput = unformatted =>
-  unformatted.join(" ").replace(/ \./g, ".").replace(/ \n /g, "\n")
+  unformatted.join(" ").replace(/_/g, " ")
 
 export const saveVocabulary = modelName => {
   try {
     fs.writeFileSync(
-      path.join(process.cwd(), `models/${modelName}/vocab.txt`),
+      path.join(process.cwd(), `models/${modelName}/vocab.json`),
       JSON.stringify(vocabulary)
     )
     console.log(`Vocabulary saved with ${vocLen()} tokens`)
@@ -88,7 +89,7 @@ export const saveVocabulary = modelName => {
 
 export const loadVocabulary = modelName => {
   const json = fs
-    .readFileSync(path.join(process.cwd(), `models/${modelName}/vocab.txt`))
+    .readFileSync(path.join(process.cwd(), `models/${modelName}/vocab.json`))
     .toString("utf8")
   vocabulary = JSON.parse(json)
 }
@@ -102,10 +103,10 @@ export const loadTrainingData = async (
   // Split on spaces and newlines
   allTokens = rawText
     .replace(separationTokenRegexp, " $& ")
+    .replace(spacedSeparationTokenRegexp, " $&_ ")
     .toLowerCase()
-    .split(/ /g)
-    //.flatMap(w => w.split(/\n/g))
-    .filter(s => s.length > 0)
+    .split(/[ ]+/g)
+  //.flatMap(w => w.split(/\n/g))
   //.slice(0, 50)
 
   vocabulary = [...new Set(allTokens)]
