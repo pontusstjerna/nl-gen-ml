@@ -3,7 +3,9 @@ import path from "path"
 import * as tf from "@tensorflow/tfjs-node-gpu"
 
 let vocabulary = []
-let allTokens = []
+let unfrequentTokens = []
+let nGrams = []
+let nextTokens = []
 
 const separationTokenRegexp = /[(\-–\n]/g
 const spacedSeparationTokenRegexp = /[.,):!?]/g
@@ -43,6 +45,39 @@ const createNgrams = (tokens, sequenceLength) =>
     .map((_, startIndex) =>
       tokens.slice(startIndex, startIndex + sequenceLength)
     )
+
+const filterTokensByFrequency = (allTokens, vocabulary) => {
+  const minFreq = process.env.minTokenFrequency || 1
+  let filteredVocab = []
+  let removedTokens = []
+  console.log(
+    `Filtering ${vocabulary.length} tokens with frequency < ${minFreq}\n`
+  )
+
+  for (let i = 0; i < vocabulary.length; i++) {
+    const tokenFrequency = allTokens.reduce(
+      (count, token) => (vocabulary[i] === token ? count + 1 : count),
+      0
+    )
+
+    if (tokenFrequency < minFreq) {
+      removedTokens.push(vocabulary[i])
+    } else {
+      filteredVocab.push(vocabulary[i])
+    }
+
+    const percent = Math.floor(vocabulary.length / 100)
+    if (i % percent === 0) {
+      process.stdout.write(`${Math.floor(i / percent)}%...\r`)
+    }
+  }
+
+  console.log(
+    `Filtered ${removedTokens.length} tokens with frequency < ${minFreq}`
+  )
+
+  return { filtered: filteredVocab, removed: removedTokens }
+}
 
 const encodeNgram = nGram => nGram.map(token2ind)
 
@@ -101,41 +136,45 @@ export const loadTrainingData = async (
   const rawText = await loadFileData(filePath)
 
   // Split on spaces and newlines
-  allTokens = rawText
+  const allTokens = rawText
     .replace(separationTokenRegexp, " $& ")
     .replace(spacedSeparationTokenRegexp, " $&_ ")
     .toLowerCase()
     .split(/[ ]+/g)
-  //.flatMap(w => w.split(/\n/g))
-  //.slice(0, 50)
 
-  vocabulary = [...new Set(allTokens)]
+  const { filtered, removed } = filterTokensByFrequency(allTokens, [
+    ...new Set(allTokens),
+  ])
+  vocabulary = filtered
+  unfrequentTokens = removed
+
+  // Remove nGrams that has any removed token in it
+  const sequences = createNgrams(allTokens, sequenceLength + 1).filter(
+    nGram => !nGram.some(token => unfrequentTokens.includes(token))
+  )
+
+  nGrams = sequences.map(nGram => nGram.slice(0, sequenceLength))
+  nextTokens = sequences.map(nGram => nGram[sequenceLength])
 
   console.log(
     `Data formatted. 
 Number of vocabulary: ${vocLen()}
-Number of all tokens: ${allTokens.length}
-Sequence length: ${sequenceLength}`
+Sequence length: ${sequenceLength}
+Number of nGrams: ${nGrams.length}`
   )
 }
 
 export const batchesPerEpoch = batchSize =>
   Math.min(
-    Math.floor(allTokens.length / batchSize),
+    Math.floor(nGrams.length / batchSize),
     parseInt(process.env.batchCountLimit) || 1000000
   )
 
 export function* trainingDataGenerator(batchSize, sequenceLength) {
   const numberOfBatches = batchesPerEpoch(batchSize)
 
-  const nGrams = createNgrams(allTokens, sequenceLength)
-  const nextTokens = allTokens.slice(sequenceLength)
-
-  console.log(
-    `Batch size: ${batchSize}
-Number of batches: ${numberOfBatches}
-Number of nGrams: ${nGrams.length}`
-  )
+  console.log(`Batch size: ${batchSize}
+Number of batches: ${numberOfBatches}`)
 
   const encodedNgrams = encodeNgrams(nGrams)
   const encodedNextTokens = nextTokens.map(token2ind)
