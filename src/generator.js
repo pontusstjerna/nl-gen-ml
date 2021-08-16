@@ -1,4 +1,4 @@
-import * as tf from "@tensorflow/tfjs-node"
+import * as tf from "@tensorflow/tfjs-node-gpu"
 import {
   trainingDataGenerator,
   formatOutput,
@@ -12,8 +12,8 @@ import {
   batchesPerEpoch,
 } from "./dataHandler"
 
-const defaultGenerationTokenCount = 200
-const layerSize = 1024
+const defaultGenerationTokenCount = 100
+const layerSize = 128
 
 const createModel = (nInputs, nOutputs) => {
   const model = tf.sequential()

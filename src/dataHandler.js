@@ -1,6 +1,6 @@
 import fs from "fs"
 import path from "path"
-import * as tf from "@tensorflow/tfjs-node"
+import * as tf from "@tensorflow/tfjs-node-gpu"
 
 let vocabulary = []
 let allTokens = []
@@ -122,29 +122,37 @@ Sequence length: ${sequenceLength}`
 export const batchesPerEpoch = batchSize =>
   Math.min(
     Math.floor(allTokens.length / batchSize),
-    process.env.batchCountLimit || 1000000
+    parseInt(process.env.batchCountLimit) || 1000000
   )
 
 export function* trainingDataGenerator(batchSize, sequenceLength) {
   const numberOfBatches = batchesPerEpoch(batchSize)
 
+  const nGrams = createNgrams(allTokens, sequenceLength)
+  const nextTokens = allTokens.slice(sequenceLength)
+
   console.log(
     `Batch size: ${batchSize}
-Number of batches: ${numberOfBatches}`
+Number of batches: ${numberOfBatches}
+Number of nGrams: ${nGrams.length}`
   )
 
+  const encodedNgrams = encodeNgrams(nGrams)
+  const encodedNextTokens = nextTokens.map(token2ind)
+
   for (let i = 0; i < numberOfBatches; i++) {
-    const tokensInBatch = allTokens.slice(i, i + batchSize + sequenceLength)
+    const nGramsInBatch = encodedNgrams.slice(
+      i * batchSize,
+      i * batchSize + batchSize
+    )
+    const nextTokensInBatch = encodedNextTokens.slice(
+      i * batchSize,
+      i * batchSize + batchSize
+    )
 
-    const nGrams = createNgrams(tokensInBatch, sequenceLength)
-    const nextTokens = tokensInBatch.slice(sequenceLength)
-
-    const encodedNgrams = encodeNgrams(nGrams)
-    const encodedNextTokens = nextTokens.map(token2ind)
-
-    const trainingData = encodedNgrams.map((nGram, index) => ({
+    const trainingData = nGramsInBatch.map((nGram, index) => ({
       nGram,
-      nextToken: encodedNextTokens[index],
+      nextToken: nextTokensInBatch[index],
     }))
 
     yield convertToTensors(trainingData)
