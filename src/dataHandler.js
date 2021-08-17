@@ -79,6 +79,8 @@ const filterTokensByFrequency = (allTokens, vocabulary) => {
   return { filtered: filteredVocab, removed: removedTokens }
 }
 
+const capitalize = string => string.charAt(0).toUpperCase() + string.slice(1)
+
 const encodeNgram = nGram => nGram.map(token2ind)
 
 /**
@@ -107,8 +109,19 @@ export const oneHot2token = tensor => {
   return ind2token(index)
 }
 
-export const formatOutput = unformatted =>
-  unformatted.join(" ").replace(/_/g, " ")
+export const formatOutput = tokenArr => {
+  const unformatted = tokenArr.join(" ").replace(/_/g, "")
+  const spacedSeparationTokens = unformatted.match(spacedSeparationTokenRegexp)
+  return spacedSeparationTokens
+    .reduce(
+      (result, separationToken) =>
+        result.replaceAll(` ${separationToken}`, separationToken),
+      unformatted
+    )
+    .split(". ")
+    .map(capitalize)
+    .join(". ")
+}
 
 export const saveVocabulary = modelName => {
   try {
