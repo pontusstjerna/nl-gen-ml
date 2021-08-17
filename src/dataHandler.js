@@ -81,6 +81,15 @@ const filterTokensByFrequency = (allTokens, vocabulary) => {
 
 const capitalize = string => string.charAt(0).toUpperCase() + string.slice(1)
 
+const sample = (probTensor, temperature) =>
+  tf.tidy(() => {
+    const logits = tf.div(tf.log(probTensor), Math.max(temperature, 1e-6))
+    const isNormalized = false
+    // `logits` is for a multinomial distribution, scaled by the temperature.
+    // We randomly draw a sample from the distribution.
+    return tf.multinomial(logits, 1, null, isNormalized).dataSync()[0]
+  })
+
 const encodeNgram = nGram => nGram.map(token2ind)
 
 /**
@@ -103,10 +112,10 @@ export const vocLen = () => vocabulary.length
 
 export const nGram2oneHot = nGram => tf.oneHot([encodeNgram(nGram)], vocLen())
 
-export const oneHot2token = tensor => {
-  // Tensor is on format [0, 0, 0, 0, 0.7, 0.3, 0, 0] which should be translated to 4 etc
-  const index = tf.argMax(tensor).arraySync()
-  return ind2token(index)
+export const oneHot2token = (probTensor, temperature = 1) => {
+  // probTensor is on format [0, 0, 0, 0, 0.7, 0.3, 0, 0] which should be translated to 4 etc
+  const winnerIndex = sample(probTensor, temperature)
+  return ind2token(winnerIndex)
 }
 
 export const formatOutput = tokenArr => {

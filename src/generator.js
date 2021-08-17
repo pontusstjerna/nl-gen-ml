@@ -83,7 +83,7 @@ const trainModel = async (model, dataGenerator, batchSize, epochs = 100) => {
   })
 }
 
-const generate = (model, initialInput = "Recept på") => {
+const generate = (model, initialInput = "Recept på", temperature = 1) => {
   const seqLength = sequenceLength(model)
   const generationTokenCount =
     process.env.generationCount || defaultGenerationTokenCount
@@ -103,7 +103,7 @@ const generate = (model, initialInput = "Recept på") => {
       let input = nGram2oneHot(inputNgram)
 
       const outputTensor = model.predict(input).reshape([vocLen()])
-      const outputToken = oneHot2token(outputTensor)
+      const outputToken = oneHot2token(outputTensor, temperature)
 
       output = [...output, outputToken]
 
@@ -119,7 +119,8 @@ export default async (
   modelName = "model",
   initializer,
   dataFilePath,
-  epochs
+  epochs,
+  temperature
 ) => {
   let model = null
 
@@ -156,5 +157,5 @@ export default async (
     loadVocabulary(modelName)
   }
 
-  return formatOutput(generate(model, initializer))
+  return formatOutput(generate(model, initializer, temperature))
 }
